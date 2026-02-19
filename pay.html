@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpotPay Parking</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #f4f6f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: #fff;
+            padding: 30px;
+            width: 90%;
+            max-width: 350px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            display: block;
+            margin: 0 auto 20px; /* Center horizontally and add bottom margin */
+            max-width: 200px;   /* Control logo size */
+            height: auto;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+        }
+
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            box-sizing: border-box; /* Ensures padding doesn't break width */
+        }
+
+        input:focus, select:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+
+        .total {
+            margin-top: 25px;
+            font-size: 20px;
+            font-weight: bold;
+            text-align: center;
+            color: #2c3e50;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .note {
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <img src="image_1.png" alt="SpotPay Parking Logo" class="logo">
+    <h2>SpotPay Parking</h2>
+
+    <label for="plate">License Plate Number</label>
+    <input type="text" id="plate" placeholder="ABC-1234" style="text-transform: uppercase;">
+
+    <label for="pricing">Parking Duration</label>
+    <select id="pricing" onchange="calculateTotal()">
+        <option value="">Select Option</option>
+        <option value="hourly">Hourly ($5.00/hr)</option>
+        <option value="daily">Daily ($20.00/day)</option>
+        <option value="monthly">Monthly ($150.00)</option>
+    </select>
+
+    <label for="duration">Multiplier (Hours/Days)</label>
+    <input type="number" id="duration" min="1" value="1" onchange="calculateTotal()">
+
+    <div class="total">
+        Total: $<span id="total">0.00</span>
+    </div>
+
+    <button id="pay-btn" onclick="payNow()">Proceed to Payment</button>
+
+    <p class="note">You will be redirected to Stripe for secure payment.</p>
+</div>
+
+<script>
+    // ---------------------------------------------------------
+    // 🔴 STEP 1: PASTE YOUR RENDER BACKEND URL HERE
+    // Example: const BACKEND_URL = 'https://my-app.onrender.com';
+    // ---------------------------------------------------------
+    const BACKEND_URL = 'https://spotpay-backend.onrender.com';
+
+    function calculateTotal() {
+        const pricing = document.getElementById("pricing").value;
+        const duration = document.getElementById("duration").value;
+        let rate = 0;
+
+        if (pricing === "hourly") rate = 5;
+        if (pricing === "daily") rate = 20;
+        if (pricing === "monthly") rate = 150;
+
+        const total = rate * duration;
+        document.getElementById("total").innerText = total.toFixed(2);
+    }
+
+    async function payNow() {
+        const plate = document.getElementById("plate").value;
+        const pricing = document.getElementById("pricing").value;
+        const duration = document.getElementById("duration").value;
+        const btn = document.getElementById("pay-btn");
+
+        // Basic Validation
+        if (!plate || !pricing || duration < 1) {
+            alert("Please enter your license plate and select a valid duration.");
+            return;
+        }
+
+        // Disable button to prevent double clicks
+        btn.disabled = true;
+        btn.innerText = "Redirecting to Payment...";
+
+        try {
+            // Check if user forgot to update the URL
+            if (BACKEND_URL.includes('REPLACE_THIS')) {
+                alert("Error: Backend URL not configured in code.");
+                btn.disabled = false;
+                return;
+            }
+
+            // Send data to your Render Backend
+            // We append '/create-checkout-session' to the base URL
+            const response = await fetch(`${BACKEND_URL}/create-checkout-session`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plate: plate,
+                    pricingType: pricing,
+                    duration: parseInt(duration)
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.url) {
+                // SUCCESS: Redirect the user's phone to Stripe
+                window.location.href = data.url;
+            } else {
+                // ERROR from Backend
+                alert("Payment Setup Failed: " + (data.error || "Unknown error"));
+                btn.innerText = "Proceed to Payment";
+                btn.disabled = false;
+            }
+
+        } catch (error) {
+            console.error("Connection Error:", error);
+            alert("Could not connect to payment server. Please try again.");
+            btn.innerText = "Proceed to Payment";
+            btn.disabled = false;
+        }
+    }
+</script>
+
+</body>
+</html>
